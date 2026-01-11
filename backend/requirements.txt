@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+motor
+openai
+httpx
+reportlab
+python-multipart
+sentence-transformers
+faiss-cpu
+pymupdf
+pytesseract
+python-dotenv
+psutil
+tf-keras
