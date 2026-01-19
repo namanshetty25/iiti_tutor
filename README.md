@@ -143,7 +143,7 @@ Create a `.env` file in the `backend/` directory:
 ```env
 # Required - API Keys
 GROQ_API_KEY=your_groq_api_key_here
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv:...
 
 # Optional - Configuration
 DATABASE_NAME=IITI_Tutor_DB
