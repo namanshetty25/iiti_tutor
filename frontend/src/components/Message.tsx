@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Bot, User } from 'lucide-react';
+import React from 'react';
+import { Bot, User, Download } from 'lucide-react';
 import FileButton from './FileButton';
 import katex from 'katex';
 
@@ -47,12 +47,12 @@ function renderWithKatex(text: string): React.ReactNode {
   });
 }
 
-const Message: React.FC<MessageProps> = ({ 
-  message, 
-  isBot, 
-  timestamp, 
-  file, 
-  fileName 
+const Message: React.FC<MessageProps> = ({
+  message,
+  isBot,
+  timestamp,
+  file,
+  fileName
 }) => {
   const handleFileDownload = () => {
     if (file && fileName) {
@@ -68,21 +68,28 @@ const Message: React.FC<MessageProps> = ({
   };
 
   return (
-    <div className={`flex items-start space-x-3 mb-6 ${isBot ? '' : 'flex-row-reverse space-x-reverse'}`}>
+    <div className={`flex items-start space-x-3 mb-4 ${isBot ? '' : 'flex-row-reverse space-x-reverse'}`}>
+      {/* Avatar */}
       <div className={`
-        flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-        ${isBot 
-          ? 'bg-gradient-to-r from-cyan-500 to-purple-500 shadow-lg shadow-cyan-500/25' 
-          : 'bg-gradient-to-r from-green-500 to-blue-500 shadow-lg shadow-green-500/25'
+        relative flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center
+        shadow-lg transition-transform duration-300 hover:scale-105
+        ${isBot
+          ? 'bg-gradient-to-br from-cyan-500 to-purple-600'
+          : 'bg-gradient-to-br from-emerald-500 to-teal-600'
         }
       `}>
+        {/* Glow effect */}
+        <div className={`absolute inset-0 rounded-xl blur-md opacity-40 
+                        ${isBot ? 'bg-cyan-500' : 'bg-emerald-500'}`} />
+
         {isBot ? (
-          <Bot className="w-5 h-5 text-white" />
+          <Bot className="w-4 h-4 text-white relative z-10" />
         ) : (
-          <User className="w-5 h-5 text-white" />
+          <User className="w-4 h-4 text-white relative z-10" />
         )}
       </div>
-      
+
+      {/* Message content */}
       <div className={`flex-1 max-w-xl ${isBot ? '' : 'flex flex-col items-end'}`}>
         {/* File attachment display */}
         {file && fileName && (
@@ -94,19 +101,36 @@ const Message: React.FC<MessageProps> = ({
             />
           </div>
         )}
-        
+
+        {/* Message bubble */}
         <div className={`
-          px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm max-h-96 overflow-y-auto transition-colors duration-300
-          ${isBot 
-            ? 'bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-cyan-500/20 text-gray-900 dark:text-white rounded-tl-none' 
-            : 'bg-gradient-to-r from-cyan-600 to-purple-600 text-white rounded-tr-none'
+          relative px-4 py-3 rounded-2xl transition-all duration-300
+          ${isBot
+            ? `bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm
+               border border-gray-200/50 dark:border-gray-700/50
+               text-gray-800 dark:text-gray-100 rounded-tl-md
+               shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-glow-sm`
+            : `bg-gradient-to-br from-cyan-500 to-purple-600
+               text-white rounded-tr-md shadow-lg
+               hover:shadow-xl hover:shadow-purple-500/20`
           }
         `}>
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words font-mono text-inherit m-0 ">
+          {/* Subtle gradient overlay for bot messages */}
+          {isBot && (
+            <div className="absolute inset-0 rounded-2xl rounded-tl-md 
+                           bg-gradient-to-br from-cyan-500/5 to-purple-500/5 
+                           dark:from-cyan-500/10 dark:to-purple-500/10 
+                           pointer-events-none" />
+          )}
+
+          <div className="relative text-sm leading-relaxed whitespace-pre-wrap break-words">
             {renderWithKatex(message)}
           </div>
         </div>
-        <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 px-2 ${isBot ? 'text-left' : 'text-right'}`}>
+
+        {/* Timestamp */}
+        <div className={`text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 px-1 
+                        ${isBot ? 'text-left' : 'text-right'}`}>
           {timestamp}
         </div>
       </div>

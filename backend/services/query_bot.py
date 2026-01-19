@@ -19,20 +19,30 @@ class QueryBot:
         self.MODEL_NAME = model_name
         self.GROQ_API_URL = groq_api_url
 
-        # Note: In a real app, chunks might be pre-loaded or loaded per request
-        # For simplicity during refactoring, keeping the structure similar
-        # but chunks/index should ideally be initialized once at startup
+        # Initialized in initialize() method
         self.chunks = []
         self.metadata = []
         self.index = None
         self.model = None
+        self.embeddings = None
+        self._initialized = False
 
     async def initialize(self, db):
-        self.chunks, self.metadata = await self.load_course_chunks(db)
-        if self.chunks:
-            self.index, self.model, self.embeddings = self.build_faiss_index(self.chunks)
+        """Initialize the query bot with course data from database."""
+        try:
+            self.chunks, self.metadata = await self.load_course_chunks(db)
+            if self.chunks:
+                self.index, self.model, self.embeddings = self.build_faiss_index(self.chunks)
+                self._initialized = True
+                print(f"QueryBot initialized with {len(self.chunks)} chunks")
+            else:
+                print("Warning: No course chunks loaded - QueryBot will have limited functionality")
+        except Exception as e:
+            print(f"Error initializing QueryBot: {e}")
+            self._initialized = False
 
     async def load_course_chunks(self, db):
+        """Load course data from MongoDB and create searchable chunks."""
         try:
             collection = db["First_Year_Curriculum"]
             cursor = collection.find({})
@@ -69,6 +79,7 @@ class QueryBot:
         return chunks, metadata
 
     def build_faiss_index(self, chunks):
+        """Build FAISS index for semantic search."""
         print_memory_usage("before build_faiss_index call")
         model = SentenceTransformer(self.EMBEDDING_MODEL)
         embeddings = model.encode(chunks, show_progress_bar=True)
@@ -77,7 +88,8 @@ class QueryBot:
         print_memory_usage("after build_faiss_index call")
         return index, model, embeddings
 
-    def extract_course_code(self, query: str, chat_history: list = None):
+    def extract_course_code(self, query: str, chat_history: list = None) -> str | None:
+        """Extract course code from query or chat history."""
         match = re.search(r"\b([A-Z]{2,3}\s?\d{3}[A-Z]?)\b", query.upper())
         if match:
             return match.group(1).replace(" ", "")
@@ -90,7 +102,8 @@ class QueryBot:
                         return history_match.group(1).replace(" ", "")
         return None
 
-    def get_chunks_by_course_code(self, course_code):
+    def get_chunks_by_course_code(self, course_code: str) -> list:
+        """Get all chunks for a specific course code."""
         course_code_clean = course_code.upper().replace(" ", "")
         chunks_found = []
         for i, chunk in enumerate(self.chunks):
@@ -99,24 +112,46 @@ class QueryBot:
                 chunks_found.append((chunk, self.metadata[i]))
         return chunks_found
 
-    def retrieve_relevant_chunks(self, query, chat_history: list = None, top_k=4):
-        if not self.index:
+    def retrieve_relevant_chunks(self, query: str, chat_history: list = None, top_k: int = 4) -> list:
+        """Retrieve relevant chunks for a query using semantic search."""
+        # Safety check - ensure initialization
+        if not self._initialized or self.index is None or self.model is None:
+            print("Warning: QueryBot not properly initialized")
+            return []
+        
+        if not self.chunks:
             return []
             
+        # First try exact course code matching
         course_code = self.extract_course_code(query, chat_history)
         if course_code:
             chunks_for_course = self.get_chunks_by_course_code(course_code)
             if chunks_for_course:
                 return chunks_for_course[:top_k]
 
-        query_vec = self.model.encode([query])
-        D, I = self.index.search(query_vec, top_k)
-        return [(self.chunks[i], self.metadata[i]) for i in I[0]]
+        # Fall back to semantic search
+        try:
+            query_vec = self.model.encode([query])
+            D, I = self.index.search(query_vec, top_k)
+            return [(self.chunks[i], self.metadata[i]) for i in I[0] if i < len(self.chunks)]
+        except Exception as e:
+            print(f"Error in semantic search: {e}")
+            return []
 
-    async def query_llama(self, query, context_chunks, chat_history: list = None):
+    async def query_llama(self, query: str, context_chunks: list, chat_history: list = None) -> dict:
+        """Query the LLM with context from retrieved chunks."""
         try:
             context = "\n\n".join(f"Chunk: {chunk}" for chunk, meta in context_chunks)
-            messages = [{"role": "system", "content": "You are a helpful academic assistant. Use the following course data to answer questions."}]
+            
+            messages = [
+                {
+                    "role": "system", 
+                    "content": "You are a helpful academic assistant for IIT Indore (IITI) students. "
+                              "Use the following course data to answer questions accurately. "
+                              "If the information isn't in the provided context, say so clearly. "
+                              "Be concise but thorough in your explanations."
+                }
+            ]
 
             if chat_history:
                 messages.extend(chat_history)
@@ -127,6 +162,7 @@ class QueryBot:
                 "model": self.MODEL_NAME,
                 "messages": messages,
                 "temperature": 0.2,
+                "max_tokens": 1024
             }
 
             headers = {
@@ -135,12 +171,27 @@ class QueryBot:
             }
 
             async with httpx.AsyncClient() as client:
-                response = await client.post(self.GROQ_API_URL, headers=headers, json=payload, timeout=20)
+                response = await client.post(self.GROQ_API_URL, headers=headers, json=payload, timeout=30)
                 response.raise_for_status()
                 data = response.json()
                 return {
                     "text": data["choices"][0]["message"]["content"].strip(),
                     "pdf_file": None
                 }
+        except httpx.TimeoutException:
+            return {
+                "text": "The request took too long. Please try again with a simpler question.",
+                "pdf_file": None
+            }
+        except httpx.HTTPStatusError as e:
+            print(f"API error: {e}")
+            return {
+                "text": "I encountered an error while processing your question. Please try again.",
+                "pdf_file": None
+            }
         except Exception as e:
-            raise Exception(f"Query failed: {str(e)}")
+            print(f"Query error: {e}")
+            return {
+                "text": "I had trouble answering your question. Please try rephrasing it or ask about a specific course code.",
+                "pdf_file": None
+            }

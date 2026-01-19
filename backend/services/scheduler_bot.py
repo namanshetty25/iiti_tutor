@@ -9,13 +9,18 @@ class Scheduler:
         self.TIME_ZONE = "Asia/Kolkata"
 
     async def _query_groq(self, prompt: str, max_tokens: int = 2048, temperature: float = 0.7) -> str:
-        headers = {"Authorization": f"Bearer {self.GROQ_API_KEY}"}
+        """Query Groq API for schedule generation."""
+        headers = {
+            "Authorization": f"Bearer {self.GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
         payload = {
             "model": self.MODEL_NAME,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
             "max_tokens": max_tokens
         }
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(self.GROQ_API_URL, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
@@ -75,10 +80,29 @@ Time                 | Task
 Now, generate the schedule based on all the rules and the exact format described above.
 """
 
-    async def run_scheduler(self, initial_prompt: str):
+    async def run_scheduler(self, initial_prompt: str) -> dict:
+        """Run the scheduler to generate a study/productivity schedule."""
         try:
             llm_prompt = self.build_schedule_prompt(initial_prompt)
             formatted_schedule = await self._query_groq(llm_prompt)
             return {"text": formatted_schedule, "pdf_file": None}
+        except httpx.TimeoutException:
+            return {
+                "text": "I'm taking too long to generate your schedule. Please try with a simpler request or fewer tasks.",
+                "pdf_file": None
+            }
+        except httpx.HTTPStatusError as e:
+            return {
+                "text": f"I encountered an error while generating your schedule. Please try again in a moment.",
+                "pdf_file": None
+            }
         except Exception as e:
-            return {"error": f"Failed to generate schedule: {str(e)}"}
+            print(f"Scheduler error: {e}")
+            return {
+                "text": "I had trouble creating your schedule. Could you please provide more details about:\n"
+                       "- What tasks you need to complete\n"
+                       "- How many days you have\n"
+                       "- Any specific time constraints\n\n"
+                       "For example: 'Create a 3-day study plan for my physics and math exams'",
+                "pdf_file": None
+            }

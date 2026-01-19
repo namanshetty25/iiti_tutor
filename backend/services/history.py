@@ -19,7 +19,7 @@ class ChatHistoryManager:
             print(f"Database save error: {str(e)}")
             raise
 
-    async def load_history(self, user_id: str, conversation_id: str, limit: int = 5) -> list[dict]:
+    async def load_history(self, user_id: str, conversation_id: str, limit: int = 10) -> list[dict]:
         try:
             cursor = self.collection.find(
                 {"user_id": user_id, "conversation_id": conversation_id},

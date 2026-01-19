@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles } from 'lucide-react';
 import Message from './Message';
 import ChatInput from './ChatInput';
 import TypingIndicator from './TypingIndicator';
@@ -22,7 +22,7 @@ const Chat: React.FC<ChatProps> = ({ selectedFeature }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      message: "Welcome to NEXUS! I'm your AI tutor for the IITI community...",
+      message: "Welcome to NEXUS! I'm your AI tutor for the IITI community. I can help you with course doubts, create study schedules, solve question papers, and much more. How can I assist you today?",
       isBot: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
@@ -70,7 +70,7 @@ const Chat: React.FC<ChatProps> = ({ selectedFeature }) => {
 
   const handleReceiveResponse = (response: ServiceResponse) => {
     setIsLoading(false);
-    
+
     if (response.text) {
       const botMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -86,28 +86,60 @@ const Chat: React.FC<ChatProps> = ({ selectedFeature }) => {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 pt-[81px] space-y-4 scroll-smooth">
-        {messages.map((msg) => (
-          <div key={msg.id} className="max-w-4xl mx-auto">
-            <Message 
-              message={msg.message} 
-              isBot={msg.isBot} 
-              timestamp={msg.timestamp}
-              file={msg.file}
-              fileName={msg.fileName}
-            />
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+        {/* Welcome decoration for empty chat */}
+        {messages.length === 1 && (
+          <div className="flex justify-center mb-8 animate-fade-in">
+            <div className="flex items-center space-x-2 px-4 py-2 rounded-full 
+                           bg-gradient-to-r from-cyan-500/10 to-purple-500/10 
+                           dark:from-cyan-500/20 dark:to-purple-500/20
+                           border border-cyan-200/50 dark:border-cyan-500/20">
+              <Sparkles className="w-4 h-4 text-cyan-500 dark:text-cyan-400 animate-pulse" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Start a conversation with NEXUS
+              </span>
+            </div>
           </div>
-        ))}
-        {isLoading && <div className="max-w-4xl mx-auto"><TypingIndicator /></div>}
-        <div ref={messagesEndRef} />
+        )}
+
+        {/* Messages */}
+        <div className="max-w-4xl mx-auto space-y-4">
+          {messages.map((msg, index) => (
+            <div
+              key={msg.id}
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <Message
+                message={msg.message}
+                isBot={msg.isBot}
+                timestamp={msg.timestamp}
+                file={msg.file}
+                fileName={msg.fileName}
+              />
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="animate-fade-in">
+              <TypingIndicator />
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      <div className="w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black px-4 py-2 transition-colors duration-300">
+      {/* Input area */}
+      <div className="flex-shrink-0 border-t border-gray-200/50 dark:border-gray-700/50 
+                     bg-white/50 dark:bg-black/50 backdrop-blur-lg
+                     px-4 py-3 transition-colors duration-300">
         <div className="max-w-4xl mx-auto">
-          <ChatInput 
-            onSendMessage={handleSendMessage} 
+          <ChatInput
+            onSendMessage={handleSendMessage}
             onReceiveResponse={handleReceiveResponse}
-            isLoading={isLoading} 
+            isLoading={isLoading}
           />
         </div>
       </div>
